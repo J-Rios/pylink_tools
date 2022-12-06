@@ -1,0 +1,4 @@
+{
+    // VSCode max number of characters on line vertical lines
+    "editor.rulers": [72, 79]
+}
