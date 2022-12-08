@@ -65,11 +65,11 @@ logger = logging.getLogger(__name__)
 
 class TEXT():
 
-    OPT_JLINK_SN = \
-        "Specify the Serial Number of the JLink to use"
-
     OPT_DEVICE = \
         "Specify the target MCU to connect (i.e. stm32l431vc)"
+
+    OPT_JLINK_SN = \
+        "Specify the Serial Number of the JLink to use"
 
     OPT_INTERFACE = \
         "Specify the JLink interface protocol to use (i.e. swd, jtag, spi)"
@@ -78,7 +78,7 @@ class TEXT():
         "Specify the RTT session channel number to connect"
 
     OPT_LOG = \
-        "Enable log to file"
+        "Enable RTT log to file"
 
 ###############################################################################
 ### Auxiliary Application Functions
