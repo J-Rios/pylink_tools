@@ -22,7 +22,7 @@ Version:
 ### Imported modules
 
 # Time Library
-from time import sleep as time_sleep
+from datetime import datetime
 
 # Logging Library
 import logging
@@ -109,6 +109,8 @@ class JLinkController():
             }
             if device not in self.detected_jlinks:
                 self.detected_jlinks.append(device)
+        if len(self.detected_jlinks) == 0:
+            return False
         return True
 
 
@@ -122,24 +124,23 @@ class JLinkController():
         logger.info("List of JLinks devices detected:")
         logger.info("--------------------------------")
         if len(self.detected_jlinks) == 0:
-            logger.info("JLink debugger not found")
+            logger.info("No JLink debuggers found")
         else:
             i = 0
             for jlink in self.detected_jlinks:
-                logger.info("{} {} - {}".format(
+                logger.info("{} - {} - {}".format(
                         i, jlink["product_name"], jlink["serial_number"]))
                 i = i + 1
         logger.info("\n")
 
 
-    def connect(self, jlink_device):
+    def connect(self, jlink_serial_number):
         '''Make a connection to the provided JLink device.'''
         # Make the connection
-        logger.info("Connecting to {} ({}) ...".format(
-                jlink_device["product_name"], jlink_device["serial_number"]))
+        logger.info("Connecting to {} ...".format(jlink_serial_number))
         try:
-            self.jlink.open(serial_no=jlink_device["serial_number"])
-            self.connected_jlink_serial_number = jlink_device["serial_number"]
+            self.jlink.open(serial_no=jlink_serial_number)
+            self.connected_jlink_serial_number = jlink_serial_number
         except Exception:
             logger.error(format_exc())
             logger.error("Fail connection to JLink\n")
@@ -230,6 +231,10 @@ class JLinkController():
         logger.info("----------------------------")
         logger.info("MCU Name: {}".format(self.connected_mcu.name))
         logger.info("Manufacturer: {}".format(self.connected_mcu.manufacturer))
+        logger.info("Core: {} ({})".format(
+                self.connected_mcu.core, self.connected_mcu.core_id))
+        logger.info("CPU ID: {}".format(self.connected_mcu.cpu_id))
+        logger.info("Family: {}".format(self.connected_mcu.device_family))
         logger.info("Flash Size: {} KB".format(
                 self.connected_mcu.flash_size / 1024))
         logger.info("RAM Size: {} KB".format(
@@ -239,11 +244,8 @@ class JLinkController():
                 self.connected_mcu.base_frequency / 1000000))
         logger.info("Frequency: {} MHz".format(
                 self.connected_mcu.frequency / 1000000))
-        logger.info("Voltage: {} V".format(self.connected_mcu.voltage / 1000))
-        logger.info("Core: {} ({})".format(
-                self.connected_mcu.core, self.connected_mcu.core_id))
-        logger.info("CPU ID: {}".format(self.connected_mcu.cpu_id))
-        logger.info("Family: {}\n".format(self.connected_mcu.device_family))
+        logger.info("Voltage: {} V\n".format(
+                self.connected_mcu.voltage / 1000))
 
 
     def is_mcu_connected(self):
@@ -345,10 +347,20 @@ class JLinkController():
         self.last_percentage = percentage
 
 
-    def rtt_start(self):
+    def rtt_start(self, logfile=None):
         '''Segger RTT debug mechanism initialization.'''
         logger.info("Starting RTT...\n")
         self.rtt_read_line = ""
+        # Enable log to file if requested
+        if logfile is not None:
+            try:
+                fh = logging.FileHandler(logfile)
+                fh.setLevel(logging.INFO)
+                logger.addHandler(fh)
+            except Exception:
+                logger.error(format_exc())
+                logger.error("Fail to setup logging file")
+        # Start RTT
         try:
             self.jlink.rtt_start()
         except Exception:
@@ -358,25 +370,28 @@ class JLinkController():
         return True
 
 
-    def rtt_read(self):
+    def rtt_read(self, rtt_channel=0):
         '''Segger RTT debug mechanism message read.'''
         result_ok = False
         if not self.is_jlink_mcu_connected():
             return False
         try:
-            read_byte = self.jlink.rtt_read(0, 1)
+            read_byte = self.jlink.rtt_read(rtt_channel, 1)
             if read_byte:
                 read_byte = "".join(map(chr, read_byte))
                 if (read_byte != "\r") and (read_byte != "\n"):
                     self.rtt_read_line = self.rtt_read_line + read_byte
                 if read_byte == "\n":
-                    logger.info(self.rtt_read_line)
+                    timestamp = self.get_timestamp()
+                    text_line = self.rtt_read_line
+                    if timestamp != "":
+                        text_line = "{} {}".format(timestamp, text_line)
+                    logger.info(text_line)
                     self.rtt_read_line = ""
             result_ok = True
         except Exception:
             logger.error(format_exc())
             logger.error("RTT Fail Read\n")
-        time_sleep(0.01)
         return result_ok
 
 
@@ -415,6 +430,8 @@ class JLinkController():
         Get the corresponding JLink-MCU communication interface enum
         value, from a provided string.
         '''
+        if interface is None:
+            interface = ""
         interface = interface.lower()
         if interface == "swd":
             interface = pylink.enums.JLinkInterfaces.SWD
@@ -429,7 +446,20 @@ class JLinkController():
         elif interface == "c2":
             interface = pylink.enums.JLinkInterfaces.C2
         else:
-            logger.warn("Invalid JLink-MCU interface, using SWD as default")
+            logger.warning("Invalid JLink-MCU interface, using SWD as default")
             interface = pylink.enums.JLinkInterfaces.SWD
         return interface
 
+
+    def get_timestamp(self):
+        '''Get current UTC time and create a timestamp string from it.'''
+        timestamp = ""
+        try:
+            tobj = datetime.utcnow()
+            timestamp = "[{}-{}-{} {}:{}:{}.{}]".format(
+                    tobj.year, tobj.month, tobj.day, tobj.hour, tobj.minute,
+                    tobj.second, "{}".format(tobj.microsecond)[:3])
+        except Exception:
+            logger.error(format_exc())
+            logger.error("Fail to get current time and create timestamp\n")
+        return timestamp
