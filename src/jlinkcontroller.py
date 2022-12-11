@@ -82,6 +82,7 @@ class JLinkController():
         self.connected_mcu = ConnectedMCU()
         self.connected_jlink_serial_number = ""
         self.rtt_read_line = ""
+        self.last_percentage = 0
 
 
     def show_sdk_info(self):
@@ -258,18 +259,25 @@ class JLinkController():
         return (self.is_connected() and self.is_mcu_connected())
 
 
-    def fw_dump_file(self, file_path, address, length_to_read=None):
+    def fw_dump_file(self, file_path, address=0, length_to_read=None):
         '''Read MCU memory to dump it to an output firmware file.'''
+        # Check if JLink is ready
+        addr_hex_str = "0x{0:08X}".format(address)
+        logger.info("Dumping from {} to FW file {} ...".format(
+                addr_hex_str, file_path))
+        if not self.is_jlink_mcu_connected():
+            logger.info("[Error] Jlink/MCU is not ready")
+            return False
         # Read memory
         if length_to_read is None:
             length_to_read = self.connected_mcu.flash_size
         try:
-            fw_read_bytes = self.jlink.memory_read(address, 1, length_to_read)
+            fw_read_bytes = self.jlink.memory_read(address, length_to_read)
         except Exception:
             logger.error(format_exc())
             logger.error("Fail reading MCU memory\n")
             return False
-        if len(fw_read_bytes) != len(length_to_read):
+        if len(fw_read_bytes) != length_to_read:
             logger.error("Read different number of bytes than expected")
             logger.error("Expected: {} bytes".format(length_to_read))
             logger.error("Read:     {} bytes\n".format(fw_read_bytes))
@@ -277,11 +285,12 @@ class JLinkController():
         # Write to file
         try:
             with open(file_path, "wb") as file_bin:
-                file_bin.write(fw_read_bytes)
+                file_bin.write(bytes(fw_read_bytes))
         except Exception:
             logger.error(format_exc())
             logger.error("Fail writing FW memory to file\n")
             return False
+        logger.info("Memory dump success")
         return True
 
 
@@ -291,9 +300,9 @@ class JLinkController():
         '''
         bytes_written = 0
         if on_progress is None:
-            on_progress = self.fw_flash_on_progress()
+            on_progress = self.fw_flash_on_progress
         addr_hex_str = "0x{0:08X}".format(address)
-        logger.info("Flasing to {} FW file {} ...".format(
+        logger.info("Flasing to {} from FW file {} ...".format(
                 addr_hex_str, file_path))
         if not self.is_jlink_mcu_connected():
             logger.info("[Error] Jlink/MCU is not ready")
@@ -301,28 +310,28 @@ class JLinkController():
         # Read binary file
         fw_data = None
         try:
-            with open(file_path) as file:
+            with open(file_path, "rb") as file:
                 fw_data = file.read()
         except Exception:
             logger.error(format_exc())
             logger.error("Fail reading FW file\n")
             return False
         fw_bytes = list(fw_data)
+        # Unlock MCU Read/Write access (only for some MCU families)
+        try:
+            self.jlink.unlock()
+        except Exception:
+            pass
         # Flash
         try:
-            bytes_written = self.jlink.flash_file(file_path, address,
-                    on_progress=on_progress)
+            self.jlink.flash_file(file_path, address, on_progress=on_progress)
         except Exception:
             logger.error(format_exc())
             logger.error("Fail flashing FW file\n")
             return False
-        if bytes_written != len(fw_bytes):
-            logger.error("Fail flashing FW file: " \
-                    "written less bytes than expected\n")
-            return False
         # Read and verify written firmware
         try:
-            read_bytes = self.jlink.memory_read(address, 1, bytes_written)
+            read_bytes = self.jlink.memory_read(address, len(fw_bytes))
         except Exception:
             logger.error(format_exc())
             logger.error("Fail reading FW\n")
@@ -335,6 +344,7 @@ class JLinkController():
             logger.error("Fail flashing firmware file: " \
                     "Verification missmatch\n")
             return False
+        logger.info("Memory flash success")
         return True
 
 
@@ -342,8 +352,9 @@ class JLinkController():
         '''Firmware file flashing progress callback.'''
         percentage = round(percentage)
         if percentage != self.last_percentage:
-            logger.info("{} {}".format(action, percentage))
-            logger.info(progress_string)
+            logger.info("{} {}%".format(str(action, 'utf-8'), percentage))
+            if progress_string is not None:
+                logger.info(str(progress_string, 'utf-8'))
         self.last_percentage = percentage
 
 

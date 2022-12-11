@@ -3,16 +3,16 @@
 
 '''
 Script:
-    jlink_rtt.py
+    jlink_flash.py
 Description:
-    This script connect to JLink target MCU debugging RTT session and
-    show the messages from it.
+    This script connect to JLink target MCU and write the provided firmware
+    file to the specified memory address.
 Author:
     Jose Miguel Rios Rubio
 Creation date:
-    08/12/2022
+    11/12/2022
 Last modified date:
-    08/12/2022
+    11/12/2022
 Version:
     1.0.0
 '''
@@ -22,7 +22,7 @@ Version:
 
 NAME = __file__
 VERSION = "1.0.0"
-DATE = "08/12/2022"
+DATE = "11/12/2022"
 
 ###############################################################################
 ### Imported modules
@@ -74,14 +74,19 @@ class TEXT():
     OPT_INTERFACE = \
         "Specify the JLink interface protocol to use (i.e. swd, jtag, spi)"
 
-    OPT_RTT_SESSION = \
-        "Specify the RTT session channel number to connect"
+    OPT_INPUT_FILE = \
+        "Specify input file to flash the firmware"
 
-    OPT_LOG = \
-        "Enable RTT log to file"
+    OPT_FLASH_ADDRESS = \
+        "Specify MCU memory address to start writing the firmware file"
 
 ###############################################################################
 ### Auxiliary Application Functions
+
+def auto_int(x):
+    '''Integer conversion using automatic base detection.'''
+    return int(x, 0)
+
 
 def parse_options():
     '''Get and parse program input arguments.'''
@@ -89,13 +94,13 @@ def parse_options():
     arg_parser.version = VERSION
     arg_parser.add_argument("-d", "--device", help=TEXT.OPT_DEVICE,
                             action='store', type=str, required=True)
+    arg_parser.add_argument("-f", "--firmwarefile", help=TEXT.OPT_INPUT_FILE,
+                            action='store', type=str, required=True)
+    arg_parser.add_argument("-a", "--address", help=TEXT.OPT_FLASH_ADDRESS,
+                            action='store', type=auto_int, required=True)
     arg_parser.add_argument("-s", "--serialnumber", help=TEXT.OPT_JLINK_SN,
                             action='store', type=str)
     arg_parser.add_argument("-i", "--interface", help=TEXT.OPT_INTERFACE,
-                            action='store', type=str)
-    arg_parser.add_argument("-r", "--rtt_channel", help=TEXT.OPT_RTT_SESSION,
-                            action='store', type=str)
-    arg_parser.add_argument("-l", "--log", help=TEXT.OPT_LOG,
                             action='store', type=str)
     arg_parser.add_argument("-v", "--version", action="version")
     args = arg_parser.parse_args()
@@ -113,8 +118,8 @@ def main(argc, argv):
     jlink_serial_number = arg_options["serialnumber"]
     mcu_target = arg_options["device"]
     jlink_mcu_interface = arg_options["interface"]
-    rtt_channel = arg_options["rtt_channel"]
-    logfile = arg_options["log"]
+    fw_file = arg_options["firmwarefile"]
+    address = arg_options["address"]
     # JLink Discovery
     if not jlink.discover():
         logger.error("No JLink device detected in the system")
@@ -124,10 +129,6 @@ def main(argc, argv):
         jlink_serial_number = jlink.detected_jlinks[0]["serial_number"]
         logger.warning("No JLink Serial Number specified, using first " \
                 "detected device by default ({})".format(jlink_serial_number))
-    # Default to RTT channel 0 if was not provided
-    if rtt_channel is None:
-        rtt_channel = 0
-        logger.warning("No RTT channel specified, using channel 0 as default")
     # Connect to JLink
     if not jlink.connect(jlink_serial_number):
         return
@@ -137,10 +138,10 @@ def main(argc, argv):
         return
     # Show MCU Info
     jlink.show_mcu_target_info()
-    # RTT Monitor
-    jlink.rtt_start(logfile)
-    while not app_exit:
-        jlink.rtt_read(rtt_channel)
+    # Dump memory to file
+    if not jlink.fw_flash_file(fw_file, address):
+        jlink.disconnect()
+        return
     # Disconnect JLink
     logger.info("")
     jlink.disconnect()
