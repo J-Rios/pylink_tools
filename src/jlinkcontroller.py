@@ -103,10 +103,16 @@ class JLinkController():
             logger.error("Fail system detection of JLinks\n")
             return False
         for probe in connected_probes:
+            # Fix Serial Number regarding missing leading zeros
+            expected_serial_number_length = 12
+            serial_number = str(probe.SerialNumber)
+            while len(serial_number) < expected_serial_number_length:
+                serial_number = f"0{serial_number}"
+            # STore JLink Information
             device = \
             {
                 "product_name": probe.acProduct.decode(),
-                "serial_number": probe.SerialNumber
+                "serial_number": serial_number
             }
             if device not in self.detected_jlinks:
                 self.detected_jlinks.append(device)
