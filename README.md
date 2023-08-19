@@ -3,21 +3,17 @@
 Python scripts that use Pylink framework to control a JTAG JLink debugger
 device and communicate with a target ARM MCU connected to it.
 
-## Requirements
+## Requirements Installation
 
 - [Python 3.X](https://www.python.org/downloads/)
 - [SEGGER J-Link Tools >= 6.0b](https://www.segger.com/downloads/jlink)
 - [PyLink Framework](https://github.com/square/pylink)
 
-
-## Installation
-
 ### pylink
 
 Get and install pylink framework:
 
-bash
-```
+```bash
 git clone https://github.com/square/pylink
 cd pylink
 git checkout v0.14.3
@@ -35,17 +31,6 @@ will automatically find the library if you have installed it this way, but for
 best results, you should use one of the two methods listed below depending on
 your operating system:
 
-#### On Mac
-
-```
-# Option A: Copy the library to your libraries directory.
-cp libjlinkarm.dylib /usr/local/lib/
-
-# Option B: Add SEGGER's J-Link directory to your dynamic libraries path.
-export DYLD_LIBRARY_PATH=/Applications/SEGGER/JLink:$DYLD_LIBRARY_PATH
-```
-
-
 #### On Windows
 
 Windows searches for DLLs in the following order:
@@ -57,13 +42,32 @@ Windows searches for DLLs in the following order:
 You can copy the `JLinkARM.dll` to any of the directories listed above.
 Alternatively, add the SEGGER J-Link directory to your `%PATH%`.
 
-
 #### On Linux
 
-```
+```bash
 # Option A: Copy the library to your libraries directory.
 cp libjlinkarm.so /usr/local/lib/
 
 # Option B: Add SEGGER's J-Link library path to your libraries path.
 export LD_LIBRARY_PATH=/path/to/SEGGER/JLink:$LD_LIBRARY_PATH
+```
+
+#### On Mac
+
+```bash
+# Option A: Copy the library to your libraries directory.
+cp libjlinkarm.dylib /usr/local/lib/
+
+# Option B: Add SEGGER's J-Link directory to your dynamic libraries path.
+export DYLD_LIBRARY_PATH=/Applications/SEGGER/JLink:$DYLD_LIBRARY_PATH
+```
+
+## pylink_tools Installation
+
+### Linux
+
+```bash
+git clone https://github.com/J-Rios/pylink_tools
+cd pylink_tools
+make install
 ```
