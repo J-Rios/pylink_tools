@@ -97,7 +97,7 @@ def parse_options():
     arg_parser.add_argument("-f", "--firmwarefile", help=TEXT.OPT_OUT_FILE,
                             action='store', type=str, required=True)
     arg_parser.add_argument("-a", "--address", help=TEXT.OPT_FLASH_ADDRESS,
-                            action='store', type=auto_int, required=True)
+                            action='store', type=auto_int, default=0x08000000)
     arg_parser.add_argument("-s", "--serialnumber", help=TEXT.OPT_JLINK_SN,
                             action='store', type=str)
     arg_parser.add_argument("-i", "--interface", help=TEXT.OPT_INTERFACE,
@@ -128,7 +128,7 @@ def main(argc, argv):
     if jlink_serial_number is None:
         jlink_serial_number = jlink.detected_jlinks[0]["serial_number"]
         logger.warning("No JLink Serial Number specified, using first " \
-                "detected device by default ({})".format(jlink_serial_number))
+                "detected device ({})".format(jlink_serial_number))
     # Connect to JLink
     if not jlink.connect(jlink_serial_number):
         return
