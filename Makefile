@@ -1,6 +1,7 @@
 
 install:
 	sudo cp -a ../pylink_tools /opt
+	sudo chmod +x /opt/pylink_tools/src/*
 	sudo ln -s /opt/pylink_tools/src/jlink_dump.py /usr/local/bin/jlink_dump
 	sudo ln -s /opt/pylink_tools/src/jlink_flash.py /usr/local/bin/jlink_flash
 	sudo ln -s /opt/pylink_tools/src/jlink_info.py /usr/local/bin/jlink_info
